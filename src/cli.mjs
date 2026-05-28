@@ -1,29 +1,39 @@
 #!/usr/bin/env node
 
-import { existsSync } from 'node:fs';
+import { existsSync, writeFileSync } from 'node:fs';
 import { resolve, join } from 'node:path';
 import { KensaDB } from './db.mjs';
 import { runDead } from './dead.mjs';
 import { runDeps } from './deps.mjs';
 import { runStats } from './stats.mjs';
+import { runGraph } from './graph.mjs';
 
-const USAGE = `neko-kensa v0.1.0 - Code quality inspector (zero dependencies)
+const USAGE = `neko-kensa v0.2.0 - Code quality inspector (zero dependencies)
 
 Usage:
-  neko-kensa dead [path] [--entry <file>...] [--json] [--db <path>]
-  neko-kensa deps [path] [--rules <file>]    [--json] [--db <path>]
-  neko-kensa stats                           [--json] [--db <path>]
+  neko-kensa dead  [path] [--entry <file>...]  [--json] [--db <path>]
+  neko-kensa deps  [path] [--rules <file>]     [--json] [--db <path>]
+  neko-kensa stats                             [--json] [--db <path>]
+  neko-kensa graph <type> [--out <file>] [--dir]        [--db <path>]
   neko-kensa --help
 
 Commands:
   dead    Detect unreachable files from entry points (Knip-like)
   deps    Detect circular dependencies and rule violations (dependency-cruiser-like)
   stats   Show repository statistics
+  graph   Generate dependency/class/call graph as HTML (Astah-like)
+
+Graph types:
+  deps    File/directory dependency graph
+  class   Class inheritance hierarchy
+  calls   Function call graph
 
 Options:
   --entry <file>   Specify entry point files (dead only, repeatable)
   --rules <file>   Path to rules file (deps only, default: .neko-kensa.json)
   --json           Output as JSON
+  --out <file>     Write HTML to file instead of stdout (graph only)
+  --dir            Aggregate by directory (graph deps only)
   --db <path>      Path to graph.db (default: ~/.code-graph/graph.db)
   --help           Show this help
 `;
@@ -75,6 +85,17 @@ function main() {
         process.stdout.write(output + '\n');
         break;
       }
+      case 'graph': {
+        const graphType = flags._positional[0] || 'deps';
+        const html = runGraph(db, { type: graphType, dir: flags.dir });
+        if (flags.out) {
+          writeFileSync(flags.out, html, 'utf8');
+          process.stderr.write(`Graph written to ${flags.out}\n`);
+        } else {
+          process.stdout.write(html);
+        }
+        break;
+      }
       default:
         process.stderr.write(`Unknown command: ${command}\n\n`);
         process.stdout.write(USAGE);
@@ -101,6 +122,10 @@ function parseFlags(args) {
       flags.entry.push(args[++i]);
     } else if (arg === '--rules' && i + 1 < args.length) {
       flags.rules = args[++i];
+    } else if (arg === '--out' && i + 1 < args.length) {
+      flags.out = args[++i];
+    } else if (arg === '--dir') {
+      flags.dir = true;
     } else if (!arg.startsWith('-')) {
       flags._positional.push(arg);
     }

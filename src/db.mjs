@@ -116,6 +116,24 @@ export class KensaDB {
     return { files, symbols, dependencies, byLanguage };
   }
 
+  getAllCallsWithPaths() {
+    return this.#db.prepare(
+      `SELECT f1.path AS caller_path, c.caller_symbol, c.callee_name, f2.path AS callee_path
+       FROM calls c
+       JOIN files f1 ON c.caller_file_id = f1.id
+       LEFT JOIN files f2 ON c.callee_file_id = f2.id`
+    ).all();
+  }
+
+  getAllInheritanceWithPaths() {
+    return this.#db.prepare(
+      `SELECT f1.path AS child_path, i.child_class, i.parent_class, f2.path AS parent_path
+       FROM inheritance i
+       JOIN files f1 ON i.child_file_id = f1.id
+       LEFT JOIN files f2 ON i.parent_file_id = f2.id`
+    ).all();
+  }
+
   getRepositoryPath() {
     const row = this.#db.prepare(
       "SELECT value FROM metadata WHERE key = 'repository_path'"
