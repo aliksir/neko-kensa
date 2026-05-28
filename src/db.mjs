@@ -134,6 +134,56 @@ export class KensaDB {
     ).all();
   }
 
+  getLargeFiles(maxLines) {
+    return this.#db.prepare(
+      'SELECT path, language, line_count FROM files WHERE line_count > ? ORDER BY line_count DESC'
+    ).all(maxLines);
+  }
+
+  getHighFanOut(maxImports) {
+    return this.#db.prepare(
+      `SELECT f.path, f.language, COUNT(*) AS import_count
+       FROM dependencies d JOIN files f ON d.source_file_id = f.id
+       WHERE d.target_file_id IS NOT NULL
+       GROUP BY d.source_file_id HAVING COUNT(*) > ?
+       ORDER BY import_count DESC`
+    ).all(maxImports);
+  }
+
+  getHighFanIn(maxDependents) {
+    return this.#db.prepare(
+      `SELECT f.path, f.language, COUNT(*) AS dependent_count
+       FROM dependencies d JOIN files f ON d.target_file_id = f.id
+       WHERE d.target_file_id IS NOT NULL
+       GROUP BY d.target_file_id HAVING COUNT(*) > ?
+       ORDER BY dependent_count DESC`
+    ).all(maxDependents);
+  }
+
+  getUnresolvedImports() {
+    return this.#db.prepare(
+      `SELECT f.path AS source_path, d.target_module
+       FROM dependencies d JOIN files f ON d.source_file_id = f.id
+       WHERE d.target_file_id IS NULL
+       ORDER BY f.path`
+    ).all();
+  }
+
+  getManySymbols(maxSymbols) {
+    return this.#db.prepare(
+      `SELECT f.path, f.language, COUNT(*) AS symbol_count
+       FROM symbols s JOIN files f ON s.file_id = f.id
+       GROUP BY s.file_id HAVING COUNT(*) > ?
+       ORDER BY symbol_count DESC`
+    ).all(maxSymbols);
+  }
+
+  getInheritanceChains() {
+    return this.#db.prepare(
+      'SELECT child_class, parent_class FROM inheritance'
+    ).all();
+  }
+
   getRepositoryPath() {
     const row = this.#db.prepare(
       "SELECT value FROM metadata WHERE key = 'repository_path'"

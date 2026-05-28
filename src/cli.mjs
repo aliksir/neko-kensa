@@ -7,14 +7,16 @@ import { runDead } from './dead.mjs';
 import { runDeps } from './deps.mjs';
 import { runStats } from './stats.mjs';
 import { runGraph } from './graph.mjs';
+import { runLint } from './lint.mjs';
 
-const USAGE = `neko-kensa v0.2.0 - Code quality inspector (zero dependencies)
+const USAGE = `neko-kensa v0.3.0 - Code quality inspector (zero dependencies)
 
 Usage:
   neko-kensa dead  [path] [--entry <file>...]  [--json] [--db <path>]
   neko-kensa deps  [path] [--rules <file>]     [--json] [--db <path>]
   neko-kensa stats                             [--json] [--db <path>]
   neko-kensa graph <type> [--out <file>] [--dir]        [--db <path>]
+  neko-kensa lint  [--rules <file>]                    [--json] [--db <path>]
   neko-kensa --help
 
 Commands:
@@ -22,6 +24,7 @@ Commands:
   deps    Detect circular dependencies and rule violations (dependency-cruiser-like)
   stats   Show repository statistics
   graph   Generate dependency/class/call graph as HTML (Astah-like)
+  lint    Structural code quality checks (Biome-like)
 
 Graph types:
   deps    File/directory dependency graph
@@ -94,6 +97,16 @@ function main() {
         } else {
           process.stdout.write(html);
         }
+        break;
+      }
+      case 'lint': {
+        const rulesFile = flags.rules || findDefaultRules(flags._positional[0]);
+        const { output, hasIssues } = runLint(db, {
+          rulesFile,
+          json: flags.json,
+        });
+        process.stdout.write(output + '\n');
+        if (hasIssues) process.exit(1);
         break;
       }
       default:
