@@ -32,7 +32,8 @@ describe('dead', () => {
     const db = new KensaDB(dbPath);
     db.open();
     try {
-      const output = runDead(db, { entries: ['src/index.ts'] });
+      const { output, hasIssues } = runDead(db, { entries: ['src/index.ts'] });
+      assert.ok(hasIssues, 'should report issues when dead files exist');
       assert.ok(output.includes('src/orphan.ts'), 'should list orphan.ts');
       assert.ok(output.includes('src/also-orphan.ts'), 'should list also-orphan.ts');
       assert.ok(!output.includes('src/a.ts'), 'should not list a.ts');
@@ -47,7 +48,8 @@ describe('dead', () => {
     const db = new KensaDB(dbPath);
     db.open();
     try {
-      const output = runDead(db, { entries: ['src/index.ts'], json: true });
+      const { output, hasIssues } = runDead(db, { entries: ['src/index.ts'], json: true });
+      assert.ok(hasIssues);
       const parsed = JSON.parse(output);
       assert.equal(parsed.dead_count, 2);
       assert.equal(parsed.total_files, 5);
@@ -70,7 +72,8 @@ describe('dead', () => {
     const kdb = new KensaDB(dbPath2);
     kdb.open();
     try {
-      const output = runDead(kdb, { entries: ['src/main.ts'] });
+      const { output, hasIssues } = runDead(kdb, { entries: ['src/main.ts'] });
+      assert.ok(!hasIssues, 'should not report issues when no dead files');
       assert.ok(output.includes('No dead files found'));
     } finally {
       kdb.close();
@@ -88,7 +91,8 @@ describe('dead', () => {
     const kdb = new KensaDB(dbPath3);
     kdb.open();
     try {
-      const output = runDead(kdb, { entries: [], repoPath: dir3 });
+      const { output, hasIssues } = runDead(kdb, { entries: [], repoPath: dir3 });
+      assert.ok(!hasIssues);
       assert.ok(output.includes('Warning') || output.includes('No dead files'));
     } finally {
       kdb.close();

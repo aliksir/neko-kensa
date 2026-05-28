@@ -51,12 +51,13 @@ function main() {
     switch (command) {
       case 'dead': {
         const repoPath = flags._positional[0] || db.getRepositoryPath() || '.';
-        const output = runDead(db, {
+        const { output, hasIssues } = runDead(db, {
           entries: flags.entry || [],
           repoPath,
           json: flags.json,
         });
         process.stdout.write(output + '\n');
+        if (hasIssues) process.exit(1);
         break;
       }
       case 'deps': {

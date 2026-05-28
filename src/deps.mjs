@@ -136,23 +136,22 @@ function loadRules(filePath) {
 function checkRules(edgesWithPaths, rules) {
   const violations = [];
 
-  const forbidRules = rules.filter(r => r.type === 'forbid');
+  const compiled = rules
+    .filter(r => r.type === 'forbid' && r.from?.pathPattern && r.to?.pathPattern)
+    .map(r => ({
+      ...r,
+      fromRe: new RegExp(r.from.pathPattern),
+      toRe: new RegExp(r.to.pathPattern),
+    }));
 
   for (const edge of edgesWithPaths) {
-    for (const rule of forbidRules) {
-      const fromPattern = rule.from?.pathPattern;
-      const toPattern = rule.to?.pathPattern;
-      if (!fromPattern || !toPattern) continue;
-
-      const fromMatch = new RegExp(fromPattern).test(edge.source_path);
-      const toMatch = new RegExp(toPattern).test(edge.target_path);
-
-      if (fromMatch && toMatch) {
+    for (const rule of compiled) {
+      if (rule.fromRe.test(edge.source_path) && rule.toRe.test(edge.target_path)) {
         violations.push({
           rule: rule.name || 'unnamed',
           from: edge.source_path,
           to: edge.target_path,
-          message: rule.message || `Forbidden: ${fromPattern} -> ${toPattern}`,
+          message: rule.message || `Forbidden: ${rule.from.pathPattern} -> ${rule.to.pathPattern}`,
           severity: rule.severity || 'error',
         });
       }

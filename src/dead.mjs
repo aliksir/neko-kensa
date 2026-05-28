@@ -5,8 +5,8 @@ export function runDead(db, { entries = [], repoPath = null, json = false } = {}
   const allFiles = db.getAllFiles();
   if (allFiles.length === 0) {
     const msg = 'No files indexed. Run code-graph index_repository first.';
-    if (json) return JSON.stringify({ error: msg });
-    return msg;
+    if (json) return { output: JSON.stringify({ error: msg }), hasIssues: false };
+    return { output: msg, hasIssues: false };
   }
 
   const edges = db.getAllDependencyEdges();
@@ -14,27 +14,31 @@ export function runDead(db, { entries = [], repoPath = null, json = false } = {}
 
   if (entryFileIds.length === 0) {
     const msg = 'Warning: No entry points found. All files treated as reachable.';
-    if (json) return JSON.stringify({ dead_files: [], total_files: allFiles.length, dead_count: 0, dead_percentage: 0, warning: msg });
-    return msg;
+    if (json) return { output: JSON.stringify({ dead_files: [], total_files: allFiles.length, dead_count: 0, dead_percentage: 0, warning: msg }), hasIssues: false };
+    return { output: msg, hasIssues: false };
   }
 
   const adjacency = buildAdjacency(edges);
   const reachable = bfs(adjacency, entryFileIds);
   const deadFiles = allFiles.filter(f => !reachable.has(f.id));
+  const hasIssues = deadFiles.length > 0;
 
   if (json) {
     const pct = allFiles.length > 0 ? +(deadFiles.length / allFiles.length * 100).toFixed(1) : 0;
-    return JSON.stringify({
-      dead_files: deadFiles.map(f => ({ path: f.path, language: f.language, line_count: f.line_count })),
-      total_files: allFiles.length,
-      dead_count: deadFiles.length,
-      dead_percentage: pct,
-      entry_points: entryFileIds.length,
-    }, null, 2);
+    return {
+      output: JSON.stringify({
+        dead_files: deadFiles.map(f => ({ path: f.path, language: f.language, line_count: f.line_count })),
+        total_files: allFiles.length,
+        dead_count: deadFiles.length,
+        dead_percentage: pct,
+        entry_points: entryFileIds.length,
+      }, null, 2),
+      hasIssues,
+    };
   }
 
   if (deadFiles.length === 0) {
-    return `No dead files found (${allFiles.length} files, ${entryFileIds.length} entry points).`;
+    return { output: `No dead files found (${allFiles.length} files, ${entryFileIds.length} entry points).`, hasIssues: false };
   }
 
   const lines = ['Dead files (unreachable from entry points):'];
@@ -44,7 +48,7 @@ export function runDead(db, { entries = [], repoPath = null, json = false } = {}
   const pct = (deadFiles.length / allFiles.length * 100).toFixed(1);
   lines.push('');
   lines.push(`Summary: ${deadFiles.length} dead files / ${allFiles.length} total (${pct}%)`);
-  return lines.join('\n');
+  return { output: lines.join('\n'), hasIssues };
 }
 
 function resolveEntries(db, allFiles, entries, repoPath) {
